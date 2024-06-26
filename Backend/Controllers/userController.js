@@ -1,21 +1,22 @@
 const User = require ("../Models/User.js")
+const Tour = require("../Models/Tour.js")
 const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
 
 
 //Create User
-const createUser = async (req,res)=>{
-    console.log('Request body:', req.body);
+// const createUser = async (req,res)=>{
+//     console.log('Request body:', req.body);
 
-    try {
-        const newUser = new User(req.body);
-        const savedUser = await newUser.save();
-        res.status(200).json({ success: true, message: 'User created successfully', data: savedUser });
-    } catch (error) {
-        console.error('Error creating user:', error);
-        res.status(500).json({ success: false, message: 'Failed to create User', error: error.message });
-    }
-}
+//     try {
+//         const newUser = new User(req.body);
+//         const savedUser = await newUser.save();
+//         res.status(200).json({ success: true, message: 'User created successfully', data: savedUser });
+//     } catch (error) {
+//         console.error('Error creating user:', error);
+//         res.status(500).json({ success: false, message: 'Failed to create User', error: error.message });
+//     }
+// }
 
 //User Login
 const UserLogin = async (req, res) => {
@@ -50,7 +51,7 @@ const UserLogin = async (req, res) => {
             secure : true,
             maxAge : 1000 * 60 * 60,
         });
-        res.setHeader("Authorization", token);
+        res.setHeader("Authorization", `Bearer ${token}`);
 
         // Send a success response with the token
         res.status(200).json({ message: "Welcome User", token });
@@ -126,11 +127,16 @@ const deleteUser = async(req,res)=>{
 const getSingleUser = async(req,res)=>{
     const id = req.params.id
     try {
-       const user = await User.findById(id) 
-       res.status(200).json({ success: true, message: 'Got requested User package', data: user });
-    } catch (error) {
-        res.status(404).json({ success: false, message: 'Not found'});
+    //    const user = await User.findById(id)
+    const user = await User.findById(id).populate('ToursBooked'); 
+    if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
     }
+    res.status(200).json({ success: true, message: 'Got requested User package', data: user });
+} catch (error) {
+    console.error('Error fetching user:', error.message);
+    res.status(500).json({ success: false, message: 'Server error' });
+}
 }
 
 //All Users
@@ -159,18 +165,26 @@ const getUserBySearch = async(req,res)=>{
     }
 }
 
-// Current User Details
+//user Profile
 const getCurrentUser = async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id).select('-Password');
+    try {  
+        const userEmail = req.params.email; // Assuming the email is passed as a parameter
+        const user = await User.findOne({ Email: userEmail })
+            .populate('ToursBooked')
+            .select('-ConfirmPassword -Password');
+        
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
+        
+        console.log('User with populated ToursBooked:', user);
         res.status(200).json({ success: true, data: user });
     } catch (error) {
+        console.error('Error fetching user:', error);
         res.status(500).json({ success: false, message: 'Failed to retrieve user details', error: error.message });
     }
 }
 
 
-module.exports = {createUser, updateUser, deleteUser, getSingleUser, getAllUser, getUserBySearch, UserLogin, userRegister, getCurrentUser}
+
+module.exports = { updateUser, deleteUser, getSingleUser, getAllUser, getUserBySearch, UserLogin, userRegister, getCurrentUser}

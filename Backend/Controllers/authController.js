@@ -76,4 +76,16 @@ const deleteTour = async (req, res) => {
     }
 };
 
+//getAll user
+// const getAllUser = async(req,res)=>{
+
+//     console.log("Page query parameter:", req.query.page);   
+//     try {
+//         const user = await User.find({})
+//         res.status(200).json({success: true, message: "Got all tour packages", data:user});
+//     } catch (error) {
+//         res.status(404).json({success:false, message:"Not found"})
+//     }
+// }
+
 module.exports = {adminLogin, viewBookedTours, updateTour, deleteTour}

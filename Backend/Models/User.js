@@ -21,7 +21,14 @@ const userSchema = new mongoose.Schema(
         Photo : {
             type: String,
             required: false,
+        },
+        ToursBooked: [
+            {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Tour',
+            required: false
         }
+    ],
     }
 )
 
