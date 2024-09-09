@@ -1,7 +1,12 @@
 const Booking = require('../Models/Booking.js')
+const User = require('../Models/User.js')
 
 //create booking
+
 const createBooking = async(req,res)=>{
+
+  const { UserName, Email, TourName, Number_Of_Passengers, Phone, Departure_Date, Return_Date, Passengers } = req.body;
+
     
   if (!req.body.Passengers || req.body.Passengers.length === 0) {
     return res.status(400).json({
@@ -9,15 +14,29 @@ const createBooking = async(req,res)=>{
         message: "A booking must have at least one passenger."
     });
 }
+if (!UserName || !Email || !TourName || !Number_Of_Passengers || !Phone || !Departure_Date || !Return_Date || !Passengers || Passengers.length === 0) {
+  return res.status(400).json({
+    success: false,
+    message: "All fields are required"
+  });
+}
+
+const UserId = req.params.UserId;
 
 const newBooking = new Booking(req.body);
     try {
         const savedBooking = await newBooking.save();
+
+         await User.findByIdAndUpdate(req.body.UserId, {
+          $push: { ToursBooked: savedBooking._id }
+      });
+      
         res.status(200).json({
           success: true,
           message: "Your tour booked successfully",
           data: savedBooking
         });
+      
       } catch (error) {
         console.error('Error creating booking:', error); // Enhanced error logging
         res.status(500).json({

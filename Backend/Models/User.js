@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema(
         Email : {
             type: String,
             required: true,
+            unique: true
+            
         },
         Password : {
             type: String,
@@ -18,15 +20,14 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true
         },
-        Photo : {
-            type: String,
-            required: false,
-        },
+        // Photo : {
+        //     type: String,
+        //     required: false,
+        // },
         ToursBooked: [
             {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'Tour',
-            required: false
+            ref: 'Booking'
         }
     ],
     }

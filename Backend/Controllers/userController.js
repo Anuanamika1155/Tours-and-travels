@@ -1,22 +1,11 @@
 const User = require ("../Models/User.js")
 const Tour = require("../Models/Tour.js")
+const Booking = require("../Models/Booking.js")
 const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 
 
-//Create User
-// const createUser = async (req,res)=>{
-//     console.log('Request body:', req.body);
-
-//     try {
-//         const newUser = new User(req.body);
-//         const savedUser = await newUser.save();
-//         res.status(200).json({ success: true, message: 'User created successfully', data: savedUser });
-//     } catch (error) {
-//         console.error('Error creating user:', error);
-//         res.status(500).json({ success: false, message: 'Failed to create User', error: error.message });
-//     }
-// }
 
 //User Login
 const UserLogin = async (req, res) => {
@@ -64,12 +53,16 @@ const UserLogin = async (req, res) => {
 
 
 //User Register
-const userRegister = async(req,res)=>{
-    const { UserName, Email, Password, ConfirmPassword } = req.body;
-     try {
-
+const userRegister = async (req, res) => {
+    const { UserName, Email, Password, ConfirmPassword, Photo } = req.body;
+    try {
         if (!UserName || !Email || !Password || !ConfirmPassword) {
             return res.status(400).json({ message: "All fields are required." });
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(Email)) {
+            return res.status(400).json({ message: "Invalid email format." });
         }
 
         const existingUser = await User.findOne({ Email });
@@ -81,36 +74,47 @@ const userRegister = async(req,res)=>{
             return res.status(400).json({ message: "Passwords do not match." });
         }
 
-
         const salt = bcrypt.genSaltSync(10);
-        const hashedPassword = bcrypt.hashSync(req.body.Password, salt);
-        
+        const hashedPassword = bcrypt.hashSync(Password, salt);
+
         const newUser = new User({
-            UserName : req.body.UserName,
-            Email : req.body.Email,
-            Password : hashedPassword,
-            ConfirmPassword : req.body.ConfirmPassword,
-            Photo : req.body.Photo
-        })
+            UserName,
+            Email,
+            Password: hashedPassword,
+            ConfirmPassword: hashedPassword,
+            // Photo: Photo || '', // Default to empty string if not provided
+        });
+
         await newUser.save();
-        res.status(200).json({success: true, message: 'Successfully created'})
-     } catch (error) {
-        res.status(500).json({success: false, message: 'Failed to create'})
-     }
-}
+        res.status(200).json({ success: true, message: 'Successfully created' });
+    } catch (error) {
+        console.error('Error in userRegister:', error);
+        res.status(500).json({ success: false, message: 'Failed to create', error: error.message });
+    }
+};
+  
 
 //Update User
-const updateUser = async(req,res)=>{
-    const id = req.params.id
+const updateUser = async (req, res) => {
+    const id = req.params.id;
     try {
-       const updatedUser = await User.findByIdAndUpdate(id,{
+      const updatedUser = await User.findByIdAndUpdate(id, {
         $set: req.body
-       },{new: true}) 
-       res.status(200).json({ success: true, message: 'User updated successfully', data: updatedUser });
+      }, { new: true });
+  
+      if (!updatedUser) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+  
+      // Fetch tours by user email after updating user info
+      const userTours = await Booking.find({ UserEmail: updatedUser.Email });
+  
+      res.status(200).json({ success: true, message: 'User updated successfully', data: updatedUser, tours: userTours });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'failed to update'});
+      res.status(500).json({ success: false, message: 'Failed to update user', error: error.message });
     }
-}
+  };
+  
 
 //Delete User
 const deleteUser = async(req,res)=>{
@@ -129,6 +133,7 @@ const getSingleUser = async(req,res)=>{
     try {
     //    const user = await User.findById(id)
     const user = await User.findById(id).populate('ToursBooked'); 
+    console.log(user);
     if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -166,24 +171,70 @@ const getUserBySearch = async(req,res)=>{
 }
 
 //user Profile
+// const getCurrentUser = async (req, res) => {
+//     try {
+//         const userEmail = req.params.email; // Assuming the email is passed as a parameter
+//         console.log(`Fetching user with email: ${userEmail}`);
+        
+//         // Fetch user from the database, populating the 'ToursBooked' field
+//         const user = await User.findOne({ Email: userEmail })
+//             .populate('ToursBooked') // Ensure 'ToursBooked' matches the field in your User schema
+//             .select('-ConfirmPassword -Password'); // Exclude sensitive fields
+        
+//         if (!user) {
+//             // If user is not found, respond with a 404 status
+//             return res.status(404).json({ success: false, message: 'User not found' });
+//         }
+        
+//         console.log('User with populated ToursBooked:', user);
+//         // Respond with user data if found
+//         res.status(200).json({ success: true, data: user });
+//     } catch (error) {
+//         // Log and respond with error if database query fails
+//         console.error('Error fetching user:', error);
+//         res.status(500).json({ success: false, message: 'Failed to retrieve user details', error: error.message });
+//     }
+// };
+
 const getCurrentUser = async (req, res) => {
-    try {  
-        const userEmail = req.params.email; // Assuming the email is passed as a parameter
+    try {
+        const userEmail = req.params.email;
+        console.log(`Fetching user with email: ${userEmail}`);
+        
+        // Fetch user from the database
         const user = await User.findOne({ Email: userEmail })
-            .populate('ToursBooked')
-            .select('-ConfirmPassword -Password');
+            .select('-ConfirmPassword -Password'); // Exclude sensitive fields
         
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
+
+        // Fetch bookings separately with passenger details
+        const bookings = await Booking.find({ Email: userEmail }).select({
+            TourName: 1,
+            BookOn: 1,
+            Number_Of_Passengers: 1,
+            Passengers: 1
+        });
+
+        // Create a new object with user data and bookings
+        const userWithBookings = {
+            ...user.toObject(),
+            ToursBooked: bookings.map(booking => ({
+                TourName: booking.TourName,
+                BookOn: booking.BookOn,
+                Number_Of_Passengers: booking.Number_Of_Passengers,
+                Passengers: booking.Passengers
+            }))
+        };
         
-        console.log('User with populated ToursBooked:', user);
-        res.status(200).json({ success: true, data: user });
+        console.log('User with fetched bookings:', userWithBookings);
+        res.status(200).json({ success: true, data: userWithBookings });
     } catch (error) {
         console.error('Error fetching user:', error);
         res.status(500).json({ success: false, message: 'Failed to retrieve user details', error: error.message });
     }
-}
+};
 
 
 

@@ -3,8 +3,8 @@ const mongoose = require ('mongoose')
 const tourSchema = new mongoose.Schema(
     {
         UserId : {
-            type: mongoose.Types.ObjectId,
-            ref: 'User'
+            type: mongoose.Schema.Types.ObjectId,
+            // ref: 'User'
         }, 
         Title : {
             type: String,
