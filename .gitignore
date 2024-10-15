@@ -1,0 +1,16 @@
+# Ignore node_modules
+node_modules/
+
+# Ignore build directories
+build/
+dist/
+
+# Ignore log files
+*.log
+
+# Ignore environment files
+.env
+
+# Ignore frontend and backend build artifacts
+/tour-management/frontend/build/
+/tour-management/backend/build/
